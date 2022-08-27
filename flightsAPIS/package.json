@@ -1,0 +1,17 @@
+{
+  "name": "data_flight_provider",
+  "version": "1.0.0",
+  "description": "Israel's data flight provider",
+  "main": "out/index.js",
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "typescript":"4.7.4",
+    "axios":"0.21.4"
+  }
+}
