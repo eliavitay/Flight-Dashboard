@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Responsive Flight Table</title>
+  <link rel="stylesheet" href="incoming-flights.css">
+
+  <div class="container">
+    <button type="button" class="button" id="main-page-btn">
+      <span class="button__text">Flights Dashboard</span>
+      <span class="button__icon">
+        <ion-icon name="map-outline"></ion-icon>
+      </span>
+    </button>
+    <button type="button" class="button" id="outgoing-flights">
+      <span class="button__text">Outgoing Flights</span>
+      <span class="button__icon">
+        <ion-icon name="airplane-outline"></ion-icon>      
+      </span>
+    </button>
+  </div>
+
+  <script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
+  <script nomodule src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
+
+</head>
+
+<body>
+
+  <div class="table-container">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Flight ID</th>
+          <th>Departure</th>
+          <th>Arrival</th>
+          <th>Status</th>
+          <th>Prediction</th>
+          <th>See Flight</th>
+        </tr>
+      </thead>
+
+      <tbody>
+
+        <script type="text/javascript">
+
+            // Getting incoming-flights map from last page.
+            var incomingMap = JSON.parse(sessionStorage.getItem('incomingJson'));
+
+              // Parsing each map inside the flights map.
+              for(key in incomingMap){
+                  incomingMap[key] = JSON.parse(incomingMap[key]);
+              }
+            
+            // Defining map for mapping key to label.
+            var keyToLabelMap = {
+                "departureCountry" : "",
+                "arrivalCountry" : "",
+                "status" : "",
+            };
+            
+            async function main(){
+
+              // Iterating over each incoming flight's map.
+              for(outer_key in incomingMap){
+                const statusPrediction = await getStatus(outer_key);
+                if( outer_key === 'undefined' || statusPrediction.toLowerCase().includes("unknown")){
+                  console.log(`Flight: ${outer_key} unknown.`);
+                }else{
+                  document.write(`<tr>`);
+                  document.write(`<td data-label="Flight ID">${outer_key}</td>`);
+                  console.log(`Flight - ${outer_key}`)
+                  for(key in incomingMap[outer_key]){
+                      if( keyToLabelMap.hasOwnProperty(key) ){
+                          const label = keyToLabelMap[key];
+                          document.write(`<td data-label="${key}">${incomingMap[outer_key][key]}</td>`);
+                      }
+                      console.log(`${key}: ${incomingMap[outer_key][key]}`);
+                  }
+                  document.write(`<td data-label="Prediction">${statusPrediction}</td>`);
+                  document.write(`<td data-label="See Flight" id="${outer_key}" ><a href="index.html?alt=${incomingMap[outer_key]["aircraftGeoLatitude"]}&lng=${incomingMap[outer_key]["aircraftGeoLongitude"]}&lvt=${incomingMap[outer_key]["aircraftElevation"]}" class="btn"><ion-icon name="map-outline"></ion-icon></a></td>`);
+                  document.write(`</tr>`);   
+                }
+              }
+              function setRedirectListener(page, elementID){
+                const anotherPackage = document.getElementById(`${elementID}`);
+                anotherPackage.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    setTimeout(function(){
+                        location.href = (`/${page}`);
+                    },0);
+                });
+              }
+
+              // Binding buttons to their main page.
+              setRedirectListener("Front-End/index.html", "main-page-btn");
+              // Binding buttons to their outgoing page.
+              setRedirectListener("Front-End/outgoing-flights.html", "outgoing-flights");
+            
+            }
+
+            // Calls main.
+            main();
+
+          async function getStatus(flightID){
+              const predictionResult = await callApiML(flightID);
+              switch(predictionResult){
+                case 1:
+                  return `<span class="label label-success">On-Time</span>`;
+                case 2:
+                return `<span class="label label-warning">Slightly-Late</span>`;
+                case 3:
+                  return `<span class="label label-danger">Very-Late</span>`;
+                default:
+                  return  `<span class="label label-danger">Unknown</span>`;
+              }
+          }
+
+          async function callApiML(flightID){
+              const prediction = Math.random();
+              if(prediction < 0.6){
+                return 1;
+              }else if(prediction < 0.9){
+                return 2;
+              }else{
+                return 3;
+              }
+          }
+
+        </script>
+      </tbody>
+
+    </table>
+
+  </div>
+
+</body>
+
+</html>

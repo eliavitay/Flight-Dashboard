@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+<link rel="stylesheet" type="text/css" href="index.css" media="screen" />
+<head>
+    <title></title>
+    <meta charset="utf-8" />
+	<script type='text/javascript'>
+
+    // Globals.
+    var cloudAPIsController = 'https://flights-cloud-services-kmmcg3tjaq-uc.a.run.app';
+    var iconPushPin = "monoplane.png";
+    var map;
+    var pushPinsMap = new Map();
+    var bingMapKeyAPI = "AiQC9yrJJCVScuk_etTKchfSJIRuSpkMmp_jGlt2s2YnbtfModIljQ-GV4NUG2Xv";
+    var keyToHeader = {
+        "departureCountry":"Departure",
+        "arrivalCountry": "Arrival",
+        "aircraftGeoLatitude" : "Latitude",
+        "aircraftGeoLongitude" : "Longitude",
+        "diraction" : "Direction",
+        "status" : "Status"
+    };
+
+    // Updates positions of pushPins.
+    function UpdatePushPinPosition(direction, location, flightID, flightInfoString)
+    {
+        // Iterate over ALL map entities.
+        for (var i = map.entities.getLength() - 1; i >= 0; i--)
+        {
+            // Getting current map-entity.
+            var pushpin = map.entities.get(i);
+            // Checking if current map-entity is of type - PushPin *AND* the title equals to pushpinTitle param.
+            if (pushpin instanceof Microsoft.Maps.Pushpin && pushpin.getTitle() == String(flightID))
+            {
+                pushpin.setLocation(location);
+                pushpin.metadata = {
+                    title: flightID,
+                    description: `${flightInfoString}`
+                };
+                return;
+            }
+        }
+
+        createRotatedImagePushpin(flightID, flightInfoString, location, iconPushPin, parseInt(direction)-35, function (pin) {
+                map.entities.push(pin);});
+
+    }
+
+    function createRotatedImagePushpin(flightID, flightInfoString, location, url, rotationAngle, callback) {
+        var img = new Image();
+        img.onload = function () {
+            var c = document.createElement('canvas');
+
+            var rotationAngleRads = rotationAngle * Math.PI / 180;
+
+            //Calculate rotated image size.
+            c.width = Math.abs(Math.ceil(img.width * Math.cos(rotationAngleRads) + img.height * Math.sin(rotationAngleRads)));
+            c.height = Math.abs(Math.ceil(img.width * Math.sin(rotationAngleRads) + img.height * Math.cos(rotationAngleRads)));
+            c.width = 40;
+            c.height = 40;
+
+            var context = c.getContext('2d');
+
+            //Move to the center of the canvas.
+            context.translate(c.width / 2, c.height / 2);
+
+            //Rotate the canvas to the specified angle in degrees.
+            context.rotate(rotationAngleRads);
+
+            //Draw the image, since the context is rotated, the image will be rotated also.
+            context.drawImage(img, -img.width / 2, -img.height / 2);
+
+            var pin = new Microsoft.Maps.Pushpin(location, {
+                //Generate a base64 image URL from the canvas.
+                icon: c.toDataURL(),
+                anchor: new Microsoft.Maps.Point(12, 28)
+            });
+            pin.metadata = {
+                title: flightID,
+                description: `${flightInfoString}`
+            };
+            Microsoft.Maps.Events.addHandler(pin, 'click', pushpinClicked);
+            if (callback) {
+                callback(pin);
+            }
+        };
+
+        //Allow cross domain image editing.
+        img.crossOrigin = 'anonymous';
+        img.src = url;
+    }
+
+    function removeFinishedFlights(){
+        let keys = Array.from(pushPinsMap.keys());
+        // Iterate over ALL map entities.
+        for (var i = map.entities.getLength() - 1; i >= 0; i--)
+        {
+            // Getting current map-entity.
+            var pushpin = map.entities.get(i);
+            // Checking if current map-entity is of type - PushPin *AND* the title equals to pushpinTitle param.
+            if (pushpin instanceof Microsoft.Maps.Pushpin && ! keys.includes(pushpin.getTitle()))
+            {
+                // If entity is instance of pushPin AND not exist on global map - erase from bing map.
+                map.entities.remove(pushpin);
+            }
+        }
+    }
+
+    async function updatePushPinMap(){
+
+        try{
+
+            // Getting JSON from server of data RT flights.
+            const response = await axios.get(`${cloudAPIsController}/real-time`);
+
+            // Iterating on each flight data.
+            response.data.data.data.forEach(element => {
+
+                // Getting ID of flight - to save as key in global map for the flight data.
+                let flightNumber = element['flightNumber'];
+
+                // Checking if airplane is not on route - meaning still flying.
+                if( element['status'] !== 'en-route' ){
+                    // Checking if airplane is in global map AND not on route.
+                    if(pushPinsMap.has(flightNumber)){
+                        // If airplane exists on global route AND has finished flight - removing from map.
+                        pushPinsMap.delete(flightNumber);
+                    }
+                }else{
+                    // If current flight not in global map, adds a new map with corresponding key to flight-ID.
+                    if( ! pushPinsMap.has(flightNumber) ){
+                        pushPinsMap.set(flightNumber, new Map());
+                    }
+
+                    // Iterating through each flight data key-value pair to add to global map. 
+                    // Add new flights *AND* updates flights that already exist on global map.
+                    for (const item of Object.entries(element)){
+
+                        // Skipping iteration if key is flight-ID.
+                        if(item[0] != 'flightNumber') {
+                            // Adding current key-value pair to global map under - flight-ID key.
+                            pushPinsMap.get(flightNumber).set(item[0], item[1]);
+                        }
+                    }
+                }
+            });
+
+            // Removing from map all planes that have finished their flight.
+            removeFinishedFlights();
+
+        }catch(e){
+            throw e;
+        }
+    }
+
+    async function drawPushPins(){
+
+        // Logging drawing of pins.
+        console.log("Drawing pins!");
+
+        // Updating global map of flights information - using API-call. (RT-Data)
+        await updatePushPinMap();
+
+        // Updating outgoing/incoming flights number AND temperature.
+        await updateTabs();
+
+        // Iterating each flight in the updated map.
+        pushPinsMap.forEach( (flightInfoMap, flightID) => {
+
+            // Creating empty string for flight description.
+            let flightInfoString = "";
+
+            // Creating information string out of all the value of the flight.
+            flightInfoMap.forEach( (k, v) =>{
+                if(keyToHeader[v]){
+                    flightInfoString += `<pre>${keyToHeader[v]}: ${k}</pre>`;
+                }
+            });
+
+            // Creating updated location for current flight.
+            var location = new Microsoft.Maps.Location(flightInfoMap.get('aircraftGeoLatitude'), flightInfoMap.get('aircraftGeoLongitude'));
+            var direction = flightInfoMap.get('diraction');
+            // Updating/Creating current pushpin according to location and info.
+            UpdatePushPinPosition(direction, location, flightID, flightInfoString);
+        });
+    }
+
+    function setRedirectListener(page, elementID){
+        const anotherPackage = document.getElementById(`${elementID}`);
+        anotherPackage.addEventListener('click', (event) => {
+            event.preventDefault();
+            setTimeout(function(){
+                location.href = (`/${page}`);
+            },0);
+        });
+    }
+
+    async function updateTabs(){
+
+        // Getting buttons objects.
+        const incomingButton = document.getElementById("incoming-flights");
+        const outgoingButton = document.getElementById("outgoing-flights");
+        const temperatureButton = document.getElementById("temperature");
+
+        // Initializing amount of planes incoming/outgoing.
+        let incoming = 0;
+        let outgoing = 0;
+        const incomingMap = new Map();
+        const outgoingMap = new Map();
+
+        // Iterating over planes data.
+        pushPinsMap.forEach( (flightInfoMap, flightID) => {
+            // Checking if flight going or coming from TLV.
+            if( flightInfoMap.get('departureCountry') === "TLV" ){
+
+                // Incrementing outgoing flights counter.
+                outgoing += 1;
+                // Adding current flight to outgoing-flights map.
+                outgoingMap.set(flightID, JSON.stringify(Object.fromEntries(flightInfoMap)));
+
+            }else{
+
+                // Incrementing incoming flights counter.
+                incoming += 1;
+                // Adding current flight to incoming-flights map.
+                incomingMap.set(flightID, JSON.stringify(Object.fromEntries(flightInfoMap)));
+
+            }
+        });
+
+        // Updating weather.
+        const temperature = await axios.get(`${cloudAPIsController}/weather/32.00683/34.88533/42`);
+
+        // Setting buttons text according to info of planes.
+        incomingButton.innerText = `${incoming}`
+        outgoingButton.innerText = `${outgoing}`
+        temperatureButton.innerText = `${temperature.data.data.data} ℃`
+
+        // convert outgoing flights map to string.
+        const outgoingJson = JSON.stringify(Object.fromEntries(outgoingMap));
+        // convert incoming flights map to string.
+        const incomingJson = JSON.stringify(Object.fromEntries(incomingMap));
+
+        // Save JSON strings of incoming/outgoing at the sessionStorage
+        sessionStorage.setItem('outgoingJson', outgoingJson);
+        sessionStorage.setItem('incomingJson', incomingJson);
+
+        
+
+    }
+
+    function pushpinClicked(e) {
+        //Make sure the infobox has metadata to display.
+        if (e.target.metadata) {
+            //Set the infobox options with the metadata of the pushpin.
+            infobox.setOptions({
+                location: e.target.getLocation(),
+                title: e.target.metadata.title,
+                description: e.target.metadata.description,
+                visible: true
+            });
+        }
+    }
+
+    function isGeoEqual(geo1, geo2){
+      return geo1.latitude === geo2.latitude && geo1.latitude === geo2.latitude;
+    }
+
+    function getCenterGeoLocation() {
+        //  Parses arguments from URL to map.
+        var params = {};
+        location.search.slice(1).split("&").forEach(function(pair) {
+            pair = pair.split("=");
+            params[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1]);
+        });
+
+        // Checks if arguments exist else return default geoLocation to TLV airport.
+        if( params["alt"] && params["lng"] && params["lvt"]){
+            return new Microsoft.Maps.Location(params["alt"], params["lng"]);
+        }else{
+            return new Microsoft.Maps.Location(32.00683, 34.88533);;
+        }
+
+    }
+
+    async function GetMap()
+    {
+        // Setting a new bing-map using our API-key, center around TLV airport.
+        map = new Microsoft.Maps.Map('#myMap', {
+            credentials: bingMapKeyAPI,
+            center: getCenterGeoLocation(),
+            mapTypeId: Microsoft.Maps.MapTypeId.aerial,
+            zoom: isGeoEqual(getCenterGeoLocation(), new Microsoft.Maps.Location(32.00683, 34.88533) ) ? 5 : 10,
+            showLocateMeButton: false,
+        });
+        
+        //Create an infobox at the center of the map but don't show it.
+        infobox = new Microsoft.Maps.Infobox(map.getCenter(), {
+            visible: false
+        });
+
+        //Assign the infobox to a map instance.
+        infobox.setMap(map);
+
+        // Binding buttons to their redirection page.
+        setRedirectListener("Front-End/incoming-flights.html", "incoming-flights");
+        setRedirectListener("Front-End/outgoing-flights.html", "outgoing-flights");
+
+        // Draw pushpins first time.
+        await drawPushPins();
+
+        // Call-back loop to function to redraw pushPins, every 10 seconds.
+        //await setInterval(function () {drawPushPins()},10000);
+    }
+    
+    </script>
+    <script type='text/javascript' src='http://www.bing.com/api/maps/mapcontrol?callback=GetMap' async defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.2/axios.min.js"></script>
+</head>
+<body>
+    <div id="myMap" style="position:center;width:100%;height:400px;"></div><br/>
+    <div class="button_container">
+        <p class="description">Incoming Flights</p>
+        <button  type="button" id="incoming-flights" class="btn"><span>...</span></button>
+        <p class="description">Outgoing Flights</p>
+        <button  type="button" id="outgoing-flights" class="btn"><span>...</span></button>
+        <p class="description">Temperature</p>
+        <button  type="button" id="temperature" class="btn"><span>...</span></button>
+    </div>
+</body>
+</html>
