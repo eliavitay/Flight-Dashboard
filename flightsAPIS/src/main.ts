@@ -5,6 +5,6 @@ import { IsraelFlightDataProvider } from "./providers/israelFlightDataProvider";
     const israelFlightDataProvider = new IsraelFlightDataProvider(apiKey);
     const rTRes = await (israelFlightDataProvider.getRTDataFlights());
     console.log(rTRes)
-    const schedulesRes = await (israelFlightDataProvider.getFlightsData());
-    console.log(schedulesRes)
+    const scheduledRes = await (israelFlightDataProvider.getFlightsData());
+    console.log(scheduledRes)
 })();

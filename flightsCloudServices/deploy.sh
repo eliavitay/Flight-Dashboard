@@ -1,9 +1,9 @@
-GOOGLE_PROJECT_ID=flights-data-cloud0-services
-CLOUD_RUN_SERVICE=cloud-apis-controller
-DB_USER=root
-DB_PASS=S!s8212057
-DB_NAME=flights-record
-INSTANCE_CONNECTION_NAME=flights-data-cloud0-services:us-central1:record-flights-sql
+GOOGLE_PROJECT_ID=*****
+CLOUD_RUN_SERVICE=****
+DB_USER=****
+DB_PASS=***
+DB_NAME=****
+INSTANCE_CONNECTION_NAME=*****
 
 gcloud builds submit --tag gcr.io/$GOOGLE_PROJECT_ID/$CLOUD_RUN_SERVICE \
  --project=$GOOGLE_PROJECT_ID

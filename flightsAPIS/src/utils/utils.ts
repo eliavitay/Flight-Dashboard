@@ -13,8 +13,5 @@ export function getStatus(status: string): Status{
     if(status === "cancelled"){
         return Status.cancelled;
     }
-    if(status === "active"){
-        return Status.active;
-    }
-    throw Error("Status flight are not valid.");
+    return Status.active;
 }

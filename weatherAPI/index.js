@@ -18,7 +18,7 @@ app.get('/*/*/*', async (req, res) => {
     res.status(200).json({"data": weatherRes});
   } catch (e) {
     console.error(e);
-    res.status(500).send('Internal Server Error: weather');
+    res.status().send('Internal Server Error: weather');
   }
 });
 

@@ -17,7 +17,7 @@ app.use('/assets', express.static('assets'));
 app.get('/real-time', async (req, res) => {
   try {
     res.header("Access-Control-Allow-Origin", "*");
-    const rTRes = await axios.get("https://flight-api-t4foyfd42a-uc.a.run.app/real-time");
+    const rTRes = await axios.get("https://flights-apis-kmmcg3tjaq-uc.a.run.app/real-time");
     updateDB(serviceTypes.realTime);
     res.status(200).json({"data": rTRes.data});
   } catch (e) {
@@ -29,7 +29,7 @@ app.get('/real-time', async (req, res) => {
 app.get('/scheduled', async (req, res) => {
   try {
     res.header("Access-Control-Allow-Origin", "*");
-    const scheduledRes = await axios.get("https://flight-api-t4foyfd42a-uc.a.run.app/scheduled");
+    const scheduledRes = await axios.get("https://flights-apis-kmmcg3tjaq-uc.a.run.app/scheduled");
     updateDB(serviceTypes.scheduled);
     res.status(200).json({"data": scheduledRes.data});
   } catch (e) {
@@ -46,7 +46,7 @@ app.get('/weather/*/*/*', async (req, res) => {
     const lalt = listParms[0];
     const longt = listParms[1];
     const ela = listParms[2];
-    const weatherUrl = `https://weather-api-t4foyfd42a-uc.a.run.app/${lalt}/${longt}/${ela}`;
+    const weatherUrl = `https://weather-api-kmmcg3tjaq-uc.a.run.app/${lalt}/${longt}/${ela}`;
     const scheduledRes = await axios.get(weatherUrl);
     updateDB(serviceTypes.weather);
     res.status(200).json({"data": scheduledRes.data});
@@ -61,7 +61,7 @@ app.get('/date-statistics/*', async (req, res) => {
     res.header("Access-Control-Allow-Origin", "*");
     const listParms = req.originalUrl.split('/').slice(2);
     const date = listParms[0];
-    const  calendarUrl = `https://calendar-api-t4foyfd42a-uc.a.run.app/${date}`;
+    const  calendarUrl = `https://calendar-api-kmmcg3tjaq-uc.a.run.app/${date}`;
     const dateStatisticRes = await axios.get(calendarUrl);
     updateDB(serviceTypes.datetatistics);
     res.status(200).json({"data": dateStatisticRes.data});

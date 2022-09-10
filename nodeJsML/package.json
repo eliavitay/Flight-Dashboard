@@ -1,0 +1,17 @@
+{
+  "name": "calendar_data_provider",
+  "version": "1.0.0",
+  "description": "calendar data provider",
+  "main": "index.js",
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "typescript": "4.7.4",
+    "axios": "0.27.2",
+    "express": "4.18.1"
+  }
+}

@@ -40,6 +40,11 @@ export enum flightTypes{
     medium = 2,
     long = 3
 }
+export enum ArrivalStatus{
+    inTime = 1,
+    delayed = 2,
+    highlyDelayed = 3
+}
 
 export interface FlightDataInterface{
     flightNumber: string,// flight_number -> flightNumber
@@ -50,8 +55,8 @@ export interface FlightDataInterface{
     airLineCompany: string,// airLineCompany -> airline_iata
     flightType: flightTypes,
     status: Status,
-    arrivalDateUTC?: Date// arr_actual_utc -> arrivalEstimatedDateUTC
-
+    arrivalStatus?: ArrivalStatus
+    arrivalDateUTC?: Date;
 }
 
 export interface RTFlightInterface{

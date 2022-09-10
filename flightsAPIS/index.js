@@ -1,7 +1,7 @@
 const { IsraelFlightDataProvider } = require("./out/providers/israelFlightDataProvider");
 const express = require('express');
 
-const API_KEY = "964e64b0-ecec-42d0-9db8-dd2e5e059f07";
+const API_KEY = "cb4c20a4-1610-443b-a04d-5b5f44204486";
 const israelFlightDataProvider = new IsraelFlightDataProvider(API_KEY);
 
 const app = express();
@@ -45,7 +45,7 @@ app.get('/', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {
   console.log(
     `Hello from Cloud Run! The container started successfully and is listening for HTTP requests on ${PORT}`
