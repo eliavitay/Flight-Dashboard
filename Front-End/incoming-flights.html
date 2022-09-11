@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.2/axios.min.js"></script>
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -38,6 +38,7 @@
           <th>Departure</th>
           <th>Arrival</th>
           <th>Status</th>
+          <th>Estimated Arrival</th>
           <th>Prediction</th>
           <th>See Flight</th>
         </tr>
@@ -47,13 +48,23 @@
 
         <script type="text/javascript">
 
+            var cloudAPIsController = 'https://flights-cloud-services-kmmcg3tjaq-uc.a.run.app';
+
             // Getting incoming-flights map from last page.
             var incomingMap = JSON.parse(sessionStorage.getItem('incomingJson'));
 
-              // Parsing each map inside the flights map.
-              for(key in incomingMap){
-                  incomingMap[key] = JSON.parse(incomingMap[key]);
-              }
+            // Parsing each map inside the flights map.
+            for(key in incomingMap){
+                incomingMap[key] = JSON.parse(incomingMap[key]);
+            }
+          
+            // Getting incoming-flights map from last page.
+            var scheduledMap = JSON.parse(sessionStorage.getItem('scheduledJson'));
+
+            // Parsing each map inside the flights map.
+            for(key in scheduledMap){
+              scheduledMap[key] = JSON.parse(scheduledMap[key]);
+            }
             
             // Defining map for mapping key to label.
             var keyToLabelMap = {
@@ -61,30 +72,51 @@
                 "arrivalCountry" : "",
                 "status" : "",
             };
+
+            async function getFlightPrediction(flightID){
+              return (await axios(`https://kafka-kmmcg3tjaq-uc.a.run.app/${flightID}`)).data;
+            }
+
+
+            async function getFlightPInfo(){
+              return (await axios(`https://kafka-kmmcg3tjaq-uc.a.run.app/real-time`)).data;
+            }            
+
+            function isFlightRelevant(flightID, scheduledMap){
+              const QUARTER_HOUR = 15 * 60 * 1000;
+              if( ! scheduledMap.hasOwnProperty(flightID) || ! scheduledMap[flightID].hasOwnProperty('arrivalEstimatedDateUTC') ){
+                return false;
+              }
+              const flightArrivalDate = new Date(scheduledMap[flightID]['arrivalEstimatedDateUTC']);
+              if(((new Date()) - flightArrivalDate) < QUARTER_HOUR){
+                  return true;
+              }else{
+                return false;
+              }
+            }
             
             async function main(){
 
               // Iterating over each incoming flight's map.
               for(outer_key in incomingMap){
                 const statusPrediction = await getStatus(outer_key);
-                if( outer_key === 'undefined' || statusPrediction.toLowerCase().includes("unknown")){
-                  console.log(`Flight: ${outer_key} unknown.`);
+                if( outer_key === 'undefined' || statusPrediction.toLowerCase().includes("unknown") || ! isFlightRelevant(outer_key, scheduledMap) ){
                 }else{
                   document.write(`<tr>`);
                   document.write(`<td data-label="Flight ID">${outer_key}</td>`);
-                  console.log(`Flight - ${outer_key}`)
                   for(key in incomingMap[outer_key]){
                       if( keyToLabelMap.hasOwnProperty(key) ){
                           const label = keyToLabelMap[key];
                           document.write(`<td data-label="${key}">${incomingMap[outer_key][key]}</td>`);
                       }
-                      console.log(`${key}: ${incomingMap[outer_key][key]}`);
                   }
+                  document.write(`<td data-label="Estimated Arrival">${new Date(scheduledMap[outer_key]['arrivalEstimatedDateUTC']).toUTCString()}</td>`);
                   document.write(`<td data-label="Prediction">${statusPrediction}</td>`);
                   document.write(`<td data-label="See Flight" id="${outer_key}" ><a href="index.html?alt=${incomingMap[outer_key]["aircraftGeoLatitude"]}&lng=${incomingMap[outer_key]["aircraftGeoLongitude"]}&lvt=${incomingMap[outer_key]["aircraftElevation"]}" class="btn"><ion-icon name="map-outline"></ion-icon></a></td>`);
                   document.write(`</tr>`);   
                 }
               }
+              
               function setRedirectListener(page, elementID){
                 const anotherPackage = document.getElementById(`${elementID}`);
                 anotherPackage.addEventListener('click', (event) => {
@@ -105,7 +137,7 @@
             // Calls main.
             main();
 
-          async function getStatus(flightID){
+            async function getStatus(flightID){
               const predictionResult = await callApiML(flightID);
               switch(predictionResult){
                 case 1:

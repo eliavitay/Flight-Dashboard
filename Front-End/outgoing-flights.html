@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.2/axios.min.js"></script>
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -38,6 +38,7 @@
           <th>Departure</th>
           <th>Arrival</th>
           <th>Status</th>
+          <th>Estimated Departure</th>
           <th>Prediction</th>
           <th>See Flight</th>
         </tr>
@@ -47,13 +48,23 @@
 
         <script type="text/javascript">
 
+            var cloudAPIsController = 'https://flights-cloud-services-kmmcg3tjaq-uc.a.run.app';
+
             // Getting outgoing-flights map from last page.
             var outgoingMap = JSON.parse(sessionStorage.getItem('outgoingJson'));
 
-              // Parsing each map inside the flights map.
-              for(key in outgoingMap){
-                  outgoingMap[key] = JSON.parse(outgoingMap[key]);
-              }
+            // Parsing each map inside the flights map.
+            for(key in outgoingMap){
+                outgoingMap[key] = JSON.parse(outgoingMap[key]);
+            }
+
+            // Getting incoming-flights map from last page.
+            var scheduledMap = JSON.parse(sessionStorage.getItem('scheduledJson'));
+
+            // Parsing each map inside the flights map.
+            for(key in scheduledMap){
+              scheduledMap[key] = JSON.parse(scheduledMap[key]);
+            }
             
             // Defining map for mapping key to label.
             var keyToLabelMap = {
@@ -61,26 +72,45 @@
                 "arrivalCountry" : "",
                 "status" : "",
             };
+
+            async function getFlightPrediction(flightID){
+              return (await axios(`https://kafka-kmmcg3tjaq-uc.a.run.app/${flightID}`)).data;
+            }
+
+            async function getFlightPInfo(){
+              return (await axios(`https://kafka-kmmcg3tjaq-uc.a.run.app/real-time`)).data;
+            }            
+
+            function isFlightRelevant(flightID, scheduledMap){
+              const QUARTER_HOUR = 15 * 60 * 1000;
+              if( ! scheduledMap.hasOwnProperty(flightID) || ! scheduledMap[flightID].hasOwnProperty('departureDateUTC') ){
+                return false;
+              }
+              const flightArrivalDate = new Date(scheduledMap[flightID]['departureDateUTC']);
+              if(((new Date()) - flightArrivalDate) < QUARTER_HOUR){
+                  return true;
+              }else{
+                return false;
+              }
+            }
             
             async function main(){
 
               // Iterating over each outgoing flight's map - building the table.
               for(outer_key in outgoingMap){
                 const statusPrediction = await getStatus(outer_key);
-                if(  outer_key === 'undefined' || statusPrediction.toLowerCase().includes("unknown")){
-                  console.log(`Flight: ${outer_key} unknown.`);
+                if(  outer_key === 'undefined' || statusPrediction.toLowerCase().includes("unknown")  || ! isFlightRelevant(outer_key, scheduledMap) ){
                 }else{
                   // Creating row for current flight.
                   document.write(`<tr>`);
                   document.write(`<td data-label="Flight ID">${outer_key}</td>`);
-                  console.log(`Flight - ${outer_key}`)
                   for(key in outgoingMap[outer_key]){
                       if( keyToLabelMap.hasOwnProperty(key) ){
                           const label = keyToLabelMap[key];
                           document.write(`<td data-label="${key}">${outgoingMap[outer_key][key]}</td>`);
                       }
-                      console.log(`${key}: ${outgoingMap[outer_key][key]}`);
                   }
+                  document.write(`<td data-label="Estimated Arrival">${new Date(scheduledMap[outer_key]['departureDateUTC']).toUTCString()}</td>`);
                   document.write(`<td data-label="Prediction">${statusPrediction}</td>`);
                   document.write(`<td data-label="See Flight" id="${outer_key}" ><a href="index.html?alt=${outgoingMap[outer_key]["aircraftGeoLatitude"]}&lng=${outgoingMap[outer_key]["aircraftGeoLongitude"]}&lvt=${outgoingMap[outer_key]["aircraftElevation"]}" class="btn"><ion-icon name="map-outline"></ion-icon></a></td>`);
                   document.write(`</tr>`);  

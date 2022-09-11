@@ -21,6 +21,19 @@
         "status" : "Status"
     };
 
+    function isFlightRelevant(flightID, scheduledMap, property){
+        const QUARTER_HOUR = 15 * 60 * 1000;
+        if( ! scheduledMap.has(flightID) || ! scheduledMap.get(flightID).has(property) ){
+            return false;
+        }
+        const flightArrivalDate = new Date(scheduledMap.get(flightID).get(property));
+        if(((new Date()) - flightArrivalDate) < QUARTER_HOUR){
+            return true;
+        }else{
+        return false;
+        }
+    }
+
     // Updates positions of pushPins.
     function UpdatePushPinPosition(direction, location, flightID, flightInfoString)
     {
@@ -127,6 +140,7 @@
                         pushPinsMap.delete(flightNumber);
                     }
                 }else{
+
                     // If current flight not in global map, adds a new map with corresponding key to flight-ID.
                     if( ! pushPinsMap.has(flightNumber) ){
                         pushPinsMap.set(flightNumber, new Map());
@@ -197,6 +211,22 @@
 
     async function updateTabs(){
 
+        const scheduledResponse = (await axios.get(`${cloudAPIsController}/scheduled`)).data.data.data;
+
+        var mapScheduled = new Map();
+
+        scheduledResponse.forEach(element => {
+
+            let flightNumber = element['flightNumber'];
+
+            mapScheduled.set(flightNumber, new Map());
+
+            for (const item of Object.entries(element)){
+                mapScheduled.get(flightNumber).set(mapScheduled.get(flightNumber).set(item[0], item[1]));
+            }
+
+        });
+
         // Getting buttons objects.
         const incomingButton = document.getElementById("incoming-flights");
         const outgoingButton = document.getElementById("outgoing-flights");
@@ -207,6 +237,11 @@
         let outgoing = 0;
         const incomingMap = new Map();
         const outgoingMap = new Map();
+        const mapScheduledJson = new Map();
+
+        mapScheduled.forEach( (flightInfoMap, flightID) => {
+            mapScheduledJson.set(flightID, JSON.stringify(Object.fromEntries(flightInfoMap)));
+        });
 
         // Iterating over planes data.
         pushPinsMap.forEach( (flightInfoMap, flightID) => {
@@ -214,14 +249,20 @@
             if( flightInfoMap.get('departureCountry') === "TLV" ){
 
                 // Incrementing outgoing flights counter.
-                outgoing += 1;
+                if(isFlightRelevant(flightID, mapScheduled, "departureDateUTC")){
+                    outgoing += 1;
+                }
+
                 // Adding current flight to outgoing-flights map.
                 outgoingMap.set(flightID, JSON.stringify(Object.fromEntries(flightInfoMap)));
 
             }else{
 
                 // Incrementing incoming flights counter.
-                incoming += 1;
+                if(isFlightRelevant(flightID, mapScheduled, "arrivalEstimatedDateUTC")){
+                    incoming += 1;
+                }
+                
                 // Adding current flight to incoming-flights map.
                 incomingMap.set(flightID, JSON.stringify(Object.fromEntries(flightInfoMap)));
 
@@ -240,12 +281,13 @@
         const outgoingJson = JSON.stringify(Object.fromEntries(outgoingMap));
         // convert incoming flights map to string.
         const incomingJson = JSON.stringify(Object.fromEntries(incomingMap));
+        // convert scheduled flights map to string.
+        const scheduledJson = JSON.stringify(Object.fromEntries(mapScheduledJson));
 
         // Save JSON strings of incoming/outgoing at the sessionStorage
         sessionStorage.setItem('outgoingJson', outgoingJson);
         sessionStorage.setItem('incomingJson', incomingJson);
-
-        
+        sessionStorage.setItem('scheduledJson', scheduledJson);
 
     }
 
